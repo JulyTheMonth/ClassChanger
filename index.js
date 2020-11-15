@@ -28,7 +28,15 @@ client.on("message", async (message) => {
     db.findOne({ guildId: guildId }, async (err, doc) => {
       console.log(doc);
 
-      myMessage = await message.channel.send("test");
+      rolelist = "";
+      doc.roles.forEach((role) => {
+        rolelist += role.roleName + " " + role.roleEmote + "\n";
+      });
+      let membername =
+        message.member.nickname || message.member.user.username;
+      myMessage = await message.channel.send(
+        "Wähle deine Klasse " + membername + ": \n" + rolelist
+      );
       let emojis = [];
       doc.roles.forEach((role) => {
         myMessage.react(role.roleEmote);
@@ -52,6 +60,8 @@ client.on("message", async (message) => {
                 myMessage.edit(
                   "Deine Klass hat sich zu " +
                     roleObject.name +
+                    " " +
+                    role.roleEmote +
                     " geändert, Glückwunsch."
                 );
               }
@@ -76,12 +86,32 @@ client.on("message", async (message) => {
       } else {
         // doc.roles.push({ roleId: roleId, roleEmote: roleEmote });
         // console.log(doc);
-        db.update(
-          { guildId: guildId },
-          { $push: { roles: { roleId: roleId, roleEmote: roleEmote } } },
-          {},
-          function (err, numReplaced) {}
-        );
+
+        message.guild.roles
+          .fetch(roleId)
+          .then((roleObject) => {
+            db.update(
+              { guildId: guildId },
+              {
+                $push: {
+                  roles: {
+                    roleId: roleId,
+                    roleEmote: roleEmote,
+                    roleName: roleObject.name,
+                  },
+                },
+              },
+              {},
+              function (err, numReplaced) {
+                message.channel.send(
+                  "Klasse " + roleObject.name + " wurde hinzugefügt"
+                );
+              }
+            );
+          })
+          .catch(() => {
+            message.channel.send("Klasse wurde nicht gefunden.");
+          });
       }
     });
   } else if (command === "removeclass") {
@@ -97,10 +127,38 @@ client.on("message", async (message) => {
         // console.log(doc);
         db.update(
           { guildId: guildId },
-          { $pull: { roles: { roleId: roleId} } },
+          { $pull: { roles: { roleId: roleId } } },
           {},
-          function (err, numReplaced) {}
+          function (err, numReplaced) {
+            message.guild.roles
+              .fetch(roleId)
+              .then((roleObject) => {
+                message.channel.send(
+                  "Klasse " + roleObject.name + " wurde entfernt!"
+                );
+              })
+              .catch(() => {
+                "Klasse wurde entfernt!";
+              });
+          }
         );
+      }
+    });
+  } else if (command === "listclass") {
+    let guildId = message.guild.id;
+
+    db.findOne({ guildId: guildId }, (err, doc) => {
+      console.log(doc);
+      if (doc == null) {
+      } else {
+        // doc.roles.push({ roleId: roleId, roleEmote: roleEmote });
+        // console.log(doc);
+        rolelist = "";
+        doc.roles.forEach((role) => {
+          rolelist += role.roleName + " " + role.roleEmote + "\n";
+        });
+
+        message.channel.send("Alle Klassen: \n" + rolelist);
       }
     });
   }
